@@ -1,0 +1,12 @@
+{
+	"runtimeModule": false,
+	"storesSensitiveData": true,
+	"main": "com.aeritt.externalprotect.Module",
+	"name": "${project.artifactId}",
+	"group": "com.aeritt.externalprotect",
+	"author": "whereareiam",
+	"version": "${project.version}",
+	"website": "whereareiam.me, aeritt.com",
+	"description": "Automatically adds proxies to the Backends section of External Protection. Can be used with: NeoProtect.",
+	"minJavaVersionId": 21
+}
