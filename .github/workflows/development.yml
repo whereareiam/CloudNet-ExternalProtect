@@ -1,0 +1,42 @@
+name: Development build
+
+on:
+  push:
+    branches:
+      - dev
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up JDK 21
+        uses: actions/setup-java@v3
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          server-id: github
+          settings-path: ${{ github.workspace }}
+
+      - name: Extract project details
+        id: project_details
+        run: |
+          echo "PROJECT_NAME=$(mvn -q -Dexec.executable=echo -Dexec.args='${project.artifactId}' --non-recursive exec:exec)" >> $GITHUB_OUTPUT
+          echo "PROJECT_VERSION=$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive exec:exec)" >> $GITHUB_OUTPUT
+
+      - name: Build
+        run: |
+          mvn -T 1C -B -P dev package --file pom.xml
+
+      - name: Upload artifact
+        env:
+          projectName: ${{ needs.setup.outputs.projectName }}
+          projectVersion: ${{ needs.setup.outputs.projectVersion }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Yue-${{ env.projectVersion }}-b${{ github.run_number }}
+          path: yue-core-bootstrap/target/${{ env.projectName }}-${{ env.projectVersion }}.jar
