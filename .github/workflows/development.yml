@@ -30,7 +30,7 @@ jobs:
 
       - name: Build
         run: |
-          mvn -T 1C -B -P dev package --file pom.xml
+          mvn -T 1C -B package --file pom.xml
 
       - name: Upload artifact
         env:
@@ -38,5 +38,5 @@ jobs:
           projectVersion: ${{ needs.setup.outputs.projectVersion }}
         uses: actions/upload-artifact@v4
         with:
-          name: Yue-${{ env.projectVersion }}-b${{ github.run_number }}
-          path: yue-core-bootstrap/target/${{ env.projectName }}-${{ env.projectVersion }}.jar
+          name: CloudNet-ExternalProtect-${{ env.projectVersion }}-b${{ github.run_number }}
+          path: target/${{ env.projectName }}-${{ env.projectVersion }}.jar

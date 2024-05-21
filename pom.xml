@@ -22,6 +22,12 @@
         <!-- Dependencies -->
         <google.guice.version>7.0.0</google.guice.version>
         <cloudnet.version>4.0.0-RC10-SNAPSHOT</cloudnet.version>
+
+        <!-- CVE Overrides -->
+        <google.guava.version>33.2.0-jre</google.guava.version>
+        <h2.version>2.2.224</h2.version>
+        <commons-compress.version>1.26.1</commons-compress.version>
+        <snakeyaml.version>2.2</snakeyaml.version>
     </properties>
 
     <build>
@@ -78,6 +84,18 @@
             <artifactId>guice</artifactId>
             <version>${google.guice.version}</version>
             <scope>compile</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>guava</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+            <version>${google.guava.version}</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>eu.cloudnetservice.cloudnet</groupId>
@@ -90,6 +108,38 @@
             <artifactId>node</artifactId>
             <version>${cloudnet.version}</version>
             <scope>provided</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.h2database</groupId>
+                    <artifactId>h2</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.commons</groupId>
+                    <artifactId>commons-compress</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.yaml</groupId>
+                    <artifactId>snakeyaml</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <version>${h2.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>${commons-compress.version}</version>
+            <scope>compile</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.yaml</groupId>
+            <artifactId>snakeyaml</artifactId>
+            <version>${snakeyaml.version}</version>
+            <scope>compile</scope>
         </dependency>
         <dependency>
             <groupId>eu.cloudnetservice.cloudnet</groupId>
