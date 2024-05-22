@@ -28,7 +28,7 @@ jobs:
     steps:
       - name: Build Module
         run: |
-          mvn -T 1C -B package --file pom.xml
+          mvn -T 1C -B package --file /home/runner/work/CloudNet-ExternalProtect/pom.xml
 
       - name: Upload artifact
         env:
