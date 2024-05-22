@@ -27,18 +27,11 @@ public class RestHelper {
 		HttpRequest request = HttpRequest.newBuilder()
 				.uri(URI.create(url))
 				.header("Authorization", authentication.getType() + " " + authentication.getToken())
+				.header("Content-Type", "application/json")
 				.GET()
 				.build();
 
-		HttpResponse<String> response;
-		try {
-			response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-		} catch (IOException | InterruptedException e) {
-			logger.severe("An error occurred while sending a GET request: " + e.getMessage());
-			response = null;
-		}
-
-		return response;
+		return sendRequest(request);
 	}
 
 	public HttpResponse<String> post(String url, Authentication authentication, String payload) {
@@ -49,11 +42,26 @@ public class RestHelper {
 				.POST(HttpRequest.BodyPublishers.ofString(payload))
 				.build();
 
+		return sendRequest(request);
+	}
+
+	public HttpResponse<String> delete(String url, Authentication authentication) {
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(url))
+				.header("Authorization", authentication.getType() + " " + authentication.getToken())
+				.header("Content-Type", "application/json")
+				.DELETE()
+				.build();
+
+		return sendRequest(request);
+	}
+
+	private HttpResponse<String> sendRequest(HttpRequest request) {
 		HttpResponse<String> response;
 		try {
 			response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 		} catch (IOException | InterruptedException e) {
-			logger.severe("An error occurred while sending a POST request: " + e.getMessage());
+			logger.severe("An error occurred while sending a request: " + e.getMessage());
 			response = null;
 		}
 
