@@ -1,5 +1,7 @@
 package com.aeritt.externalprotect;
 
+import com.aeritt.externalprotect.listener.ListenerRegistrar;
+import com.aeritt.externalprotect.service.ServiceManager;
 import com.google.inject.Guice;
 import com.google.inject.Injector;
 import eu.cloudnetservice.driver.event.EventManager;
@@ -18,6 +20,7 @@ public final class Module extends DriverModule {
 
 	@ModuleTask(lifecycle = ModuleLifeCycle.STARTED)
 	public void onStart() {
-
+		injector.getInstance(ListenerRegistrar.class).registerListeners();
+		injector.getInstance(ServiceManager.class).init();
 	}
 }

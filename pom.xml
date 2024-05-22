@@ -21,7 +21,9 @@
 
         <!-- Dependencies -->
         <google.guice.version>7.0.0</google.guice.version>
+        <google.gson.version>2.11.0</google.gson.version>
         <cloudnet.version>4.0.0-RC10-SNAPSHOT</cloudnet.version>
+        <lombok.version>1.18.30</lombok.version>
 
         <!-- CVE Overrides -->
         <google.guava.version>33.2.0-jre</google.guava.version>
@@ -95,6 +97,12 @@
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
             <version>${google.guava.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.code.gson</groupId>
+            <artifactId>gson</artifactId>
+            <version>${google.gson.version}</version>
             <scope>compile</scope>
         </dependency>
         <dependency>
@@ -127,7 +135,7 @@
             <groupId>com.h2database</groupId>
             <artifactId>h2</artifactId>
             <version>${h2.version}</version>
-            <scope>compile</scope>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -145,6 +153,12 @@
             <groupId>eu.cloudnetservice.cloudnet</groupId>
             <artifactId>common</artifactId>
             <version>${cloudnet.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+            <version>${lombok.version}</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
