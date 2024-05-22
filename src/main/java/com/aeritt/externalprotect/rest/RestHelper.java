@@ -1,48 +1,62 @@
 package com.aeritt.externalprotect.rest;
 
+import com.aeritt.externalprotect.model.authentication.Authentication;
+import com.aeritt.externalprotect.model.authentication.AuthenticationType;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import eu.cloudnetservice.common.log.Logger;
 
 import java.io.IOException;
-import java.io.OutputStream;
-import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.nio.charset.StandardCharsets;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 
 @Singleton
 public class RestHelper {
 	private final Logger logger;
+	private final HttpClient httpClient;
 
 	@Inject
 	public RestHelper(Logger logger) {
 		this.logger = logger;
+		this.httpClient = HttpClient.newHttpClient();
 	}
 
-	public boolean sendPostRequest(String url, String authType, String token, String requestBody) {
-		boolean isConnected = false;
+	public HttpResponse<String> get(String url, Authentication authentication) {
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(url))
+				.header("Authorization", authentication.getType() + " " + authentication.getToken())
+				.GET()
+				.build();
 
+		HttpResponse<String> response;
 		try {
-			URL endpoint = new URI(url).toURL();
-			HttpURLConnection conn = (HttpURLConnection) endpoint.openConnection();
-			conn.setRequestMethod("POST");
-			conn.setRequestProperty("Content-Type", "application/json");
-			conn.setRequestProperty("Authorization", authType + " " + token);
-			conn.setDoOutput(true);
-
-			OutputStream os = conn.getOutputStream();
-			byte[] input = requestBody.getBytes(StandardCharsets.UTF_8);
-			os.write(input, 0, input.length);
-
-			int responseCode = conn.getResponseCode();
-			isConnected = responseCode == HttpURLConnection.HTTP_OK;
-		} catch (IOException ignored) {
-		} catch (URISyntaxException e) {
-			logger.severe("Invalid URL: " + url);
+			response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+		} catch (IOException | InterruptedException e) {
+			logger.severe("An error occurred while sending a GET request: " + e.getMessage());
+			response = null;
 		}
 
-		return isConnected;
+		return response;
+	}
+
+	public HttpResponse<String> post(String url, Authentication authentication, String payload) {
+		HttpRequest request = HttpRequest.newBuilder()
+				.uri(URI.create(url))
+				.header("Authorization", authentication.getType() + " " + authentication.getToken())
+				.header("Content-Type", "application/json")
+				.POST(HttpRequest.BodyPublishers.ofString(payload))
+				.build();
+
+		HttpResponse<String> response;
+		try {
+			response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+		} catch (IOException | InterruptedException e) {
+			logger.severe("An error occurred while sending a POST request: " + e.getMessage());
+			response = null;
+		}
+
+		return response;
 	}
 }

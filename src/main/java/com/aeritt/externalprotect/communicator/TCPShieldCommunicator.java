@@ -1,4 +1,4 @@
-package com.aeritt.externalprotect.protection;
+package com.aeritt.externalprotect.communicator;
 
 import com.aeritt.externalprotect.model.BackendService;
 import com.google.inject.Inject;

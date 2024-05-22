@@ -4,9 +4,9 @@ import com.aeritt.externalprotect.config.setting.SettingsConfig;
 import com.aeritt.externalprotect.model.BackendService;
 import com.aeritt.externalprotect.model.Credentials;
 import com.aeritt.externalprotect.model.Protection;
-import com.aeritt.externalprotect.protection.AbstractCommunicator;
-import com.aeritt.externalprotect.protection.NeoProtectCommunicator;
-import com.aeritt.externalprotect.protection.TCPShieldCommunicator;
+import com.aeritt.externalprotect.communicator.AbstractCommunicator;
+import com.aeritt.externalprotect.communicator.NeoProtectCommunicator;
+import com.aeritt.externalprotect.communicator.TCPShieldCommunicator;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import eu.cloudnetservice.common.log.Logger;
@@ -43,9 +43,8 @@ public class ServiceManager {
 	public void init() {
 		communicators.forEach(c -> {
 			boolean successful = c.testConnection();
-			if (!successful) {
-				logger.severe("Failed to connect to " + c.getClass().getSimpleName());
-			}
+			if (!successful) logger.warning("Failed to connect to " + c.getClass().getSimpleName());
+			else logger.info("Connected to " + c.getClass().getSimpleName());
 		});
 
 		communicators.forEach(AbstractCommunicator::clearBackends);

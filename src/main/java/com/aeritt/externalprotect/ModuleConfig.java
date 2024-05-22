@@ -2,8 +2,8 @@ package com.aeritt.externalprotect;
 
 import com.aeritt.externalprotect.config.ConfigService;
 import com.aeritt.externalprotect.config.setting.SettingsConfig;
-import com.aeritt.externalprotect.protection.AbstractCommunicator;
-import com.aeritt.externalprotect.protection.NeoProtectCommunicator;
+import com.aeritt.externalprotect.communicator.AbstractCommunicator;
+import com.aeritt.externalprotect.communicator.NeoProtectCommunicator;
 import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
