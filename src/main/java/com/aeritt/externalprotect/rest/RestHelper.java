@@ -1,7 +1,6 @@
 package com.aeritt.externalprotect.rest;
 
 import com.aeritt.externalprotect.model.authentication.Authentication;
-import com.aeritt.externalprotect.model.authentication.AuthenticationType;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import eu.cloudnetservice.common.log.Logger;
@@ -26,7 +25,7 @@ public class RestHelper {
 	public HttpResponse<String> get(String url, Authentication authentication) {
 		HttpRequest request = HttpRequest.newBuilder()
 				.uri(URI.create(url))
-				.header("Authorization", authentication.getType() + " " + authentication.getToken())
+				.header("Authorization", authentication.getType().getAuthType() + " " + authentication.getToken())
 				.header("Content-Type", "application/json")
 				.GET()
 				.build();
@@ -37,7 +36,7 @@ public class RestHelper {
 	public HttpResponse<String> post(String url, Authentication authentication, String payload) {
 		HttpRequest request = HttpRequest.newBuilder()
 				.uri(URI.create(url))
-				.header("Authorization", authentication.getType() + " " + authentication.getToken())
+				.header("Authorization", authentication.getType().getAuthType() + " " + authentication.getToken())
 				.header("Content-Type", "application/json")
 				.POST(HttpRequest.BodyPublishers.ofString(payload))
 				.build();
@@ -48,7 +47,7 @@ public class RestHelper {
 	public HttpResponse<String> delete(String url, Authentication authentication) {
 		HttpRequest request = HttpRequest.newBuilder()
 				.uri(URI.create(url))
-				.header("Authorization", authentication.getType() + " " + authentication.getToken())
+				.header("Authorization", authentication.getType().getAuthType() + " " + authentication.getToken())
 				.header("Content-Type", "application/json")
 				.DELETE()
 				.build();

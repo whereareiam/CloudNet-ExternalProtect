@@ -23,4 +23,14 @@ public final class Module extends DriverModule {
 		injector.getInstance(ListenerRegistrar.class).registerListeners();
 		injector.getInstance(ServiceManager.class).init();
 	}
+
+	@ModuleTask(lifecycle = ModuleLifeCycle.STOPPED)
+	public void onStop() {
+		injector.getInstance(ServiceManager.class).clearBackends();
+	}
+
+	@ModuleTask(lifecycle = ModuleLifeCycle.RELOADING)
+	public void onReload() {
+		injector.getInstance(ServiceManager.class).clearBackends();
+	}
 }

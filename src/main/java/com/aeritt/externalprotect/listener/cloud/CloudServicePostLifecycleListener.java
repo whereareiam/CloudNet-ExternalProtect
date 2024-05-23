@@ -22,8 +22,8 @@ public class CloudServicePostLifecycleListener {
 
 		if (event.newLifeCycle() == ServiceLifeCycle.RUNNING && serviceManager.getTrackedTasks().contains(taskName))
 			serviceManager.addService(event.service());
-		
-		if (event.newLifeCycle() == ServiceLifeCycle.STOPPED && serviceManager.getTrackedTasks().contains(taskName))
+
+		if (event.newLifeCycle() == ServiceLifeCycle.DELETED && serviceManager.getTrackedTasks().contains(taskName))
 			serviceManager.removeService(event.service());
 
 	}

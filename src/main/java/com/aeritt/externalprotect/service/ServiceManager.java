@@ -1,12 +1,12 @@
 package com.aeritt.externalprotect.service;
 
+import com.aeritt.externalprotect.communicator.AbstractCommunicator;
+import com.aeritt.externalprotect.communicator.NeoProtectCommunicator;
+import com.aeritt.externalprotect.communicator.TCPShieldCommunicator;
 import com.aeritt.externalprotect.config.setting.SettingsConfig;
 import com.aeritt.externalprotect.model.BackendService;
 import com.aeritt.externalprotect.model.Credentials;
 import com.aeritt.externalprotect.model.Protection;
-import com.aeritt.externalprotect.communicator.AbstractCommunicator;
-import com.aeritt.externalprotect.communicator.NeoProtectCommunicator;
-import com.aeritt.externalprotect.communicator.TCPShieldCommunicator;
 import com.google.inject.Inject;
 import com.google.inject.Singleton;
 import eu.cloudnetservice.common.log.Logger;
@@ -51,48 +51,43 @@ public class ServiceManager {
 	}
 
 	public void addService(CloudService cloudService) {
-		Protection protectionType = getProtectionType(cloudService);
-		if (protectionType == null) return;
-		if (!getCommunicator(protectionType).isConnected()) return;
+		Credentials credentials = settingsConfig.getCredentials().stream()
+				.filter(c -> c.getTasks().contains(cloudService.serviceId().taskName()))
+				.findFirst().orElse(null);
 
-		BackendService backendService = createBackendService(cloudService);
-		AbstractCommunicator communicator = getCommunicator(protectionType);
+		if (credentials == null) return;
 
-		if (communicator != null) {
-			communicator.addBackend(backendService, settingsConfig.isProxyProtocol());
-			backendServices.get(protectionType).add(backendService);
-		}
+		BackendService backendService = createBackendService(cloudService, credentials);
+		AbstractCommunicator communicator = getCommunicator(credentials.getProtection());
+		if (!communicator.isConnected()) return;
+
+		communicator.addBackend(backendService, settingsConfig.isProxyProtocol());
+		backendServices.get(credentials.getProtection()).add(backendService);
 	}
 
 	public void removeService(CloudService cloudService) {
-		Protection protectionType = getProtectionType(cloudService);
-		if (protectionType == null) return;
-		if (!getCommunicator(protectionType).isConnected()) return;
+		Credentials credentials = settingsConfig.getCredentials().stream()
+				.filter(c -> c.getTasks().contains(cloudService.serviceId().taskName()))
+				.findFirst().orElse(null);
 
-		BackendService backendService = getBackendService(cloudService, protectionType);
+		if (credentials == null) return;
+
+		BackendService backendService = getBackendService(cloudService, credentials.getProtection());
 		if (backendService == null) return;
 
-		AbstractCommunicator communicator = getCommunicator(protectionType);
+		AbstractCommunicator communicator = getCommunicator(credentials.getProtection());
+		if (!communicator.isConnected()) return;
 
-		if (communicator != null) {
-			communicator.removeBackend(backendService);
-			backendServices.get(protectionType).remove(backendService);
-		}
+		communicator.removeBackend(backendService);
+		backendServices.get(credentials.getProtection()).remove(backendService);
 	}
 
-	private Protection getProtectionType(CloudService cloudService) {
-		return settingsConfig.getCredentials().stream()
-				.filter(c -> c.getTasks().contains(cloudService.serviceId().taskName()))
-				.map(Credentials::getProtection)
-				.findFirst().orElse(null);
-	}
+	private BackendService createBackendService(CloudService cloudService, Credentials credentials) {
+		String serviceName = cloudService.serviceId().name();
+		String host = credentials.getAddress().isUseCustomAddress() ? credentials.getAddress().getCustomAddress() : cloudService.serviceInfo().address().host();
+		int port = cloudService.serviceInfo().address().port();
 
-	private BackendService createBackendService(CloudService cloudService) {
-		return new BackendService(
-				cloudService.serviceId().name(),
-				cloudService.serviceInfo().address().host(),
-				cloudService.serviceInfo().address().port()
-		);
+		return new BackendService(serviceName, host, port);
 	}
 
 	private BackendService getBackendService(CloudService cloudService, Protection protectionType) {
@@ -110,5 +105,10 @@ public class ServiceManager {
 					.filter(c -> c instanceof TCPShieldCommunicator)
 					.findFirst().orElse(null);
 		};
+	}
+
+	public void clearBackends() {
+		communicators.forEach(AbstractCommunicator::clearBackends);
+		backendServices.values().forEach(List::clear);
 	}
 }

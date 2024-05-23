@@ -5,7 +5,7 @@ import lombok.Getter;
 
 @Getter
 public abstract class AbstractCommunicator {
-	protected boolean connected = false;
+	protected boolean connected = true;
 
 	public abstract boolean testConnection();
 

@@ -16,7 +16,6 @@ import com.google.inject.Singleton;
 import eu.cloudnetservice.common.log.Logger;
 
 import java.net.http.HttpResponse;
-import java.util.List;
 import java.util.Optional;
 
 @Singleton
@@ -38,36 +37,85 @@ public class NeoProtectCommunicator extends AbstractCommunicator {
 
 	@Override
 	public boolean testConnection() {
-		Optional<Credentials> credentials = getNeoProtectCredentials();
+		return getNeoProtectCredentials()
+				.map(this::testConnection)
+				.orElseGet(() -> {
+					logger.severe("No token or serverId found for NeoProtect");
+					return false;
+				});
+	}
 
-		if (credentials.isEmpty()) {
-			logger.severe("No token or serverId found for NeoProtect");
-			return false;
-		}
-
-		Authentication auth = new Authentication(AUTH_TYPE, credentials.get().getToken());
-		String url = String.format(NEO_PROTECT_URL, "gameshields/" + credentials.get().getServerId() + "/backendGroups");
+	private boolean testConnection(Credentials credentials) {
+		Authentication auth = new Authentication(AUTH_TYPE, credentials.getToken());
+		String url = String.format(NEO_PROTECT_URL, "gameshields/" + credentials.getServerId() + "/backendGroups");
 
 		HttpResponse<String> response = restHelper.get(url, auth);
 
 		if (response.statusCode() != 200) {
-			return connected = false;
-		}
-
-		boolean groupExists = response.body().contains("\"name\":\"" + GROUP_NAME + "\"");
-
-		if (!groupExists) {
-			createGroup(auth, url);
+			connected = false;
+		} else {
+			connected = handleBackendGroupsResponse(response, credentials, auth);
 		}
 
 		return connected;
 	}
 
-	private void createGroup(Authentication auth, String url) {
-		String createGroupPayload = getCreateGroupPayload();
-		HttpResponse<String> createResponse = restHelper.post(url, auth, createGroupPayload);
+	private boolean handleBackendGroupsResponse(HttpResponse<String> response, Credentials credentials, Authentication auth) {
+		boolean groupExists = false;
 
-		if (createResponse.statusCode() != 200) {
+		try {
+			JsonElement element = JsonParser.parseString(response.body());
+			if (element.isJsonArray()) {
+				JsonArray backendGroups = element.getAsJsonArray();
+				groupExists = handleBackendGroups(backendGroups, credentials, auth);
+			}
+		} catch (Exception e) {
+			logger.severe("Error parsing JSON response: " + e.getMessage());
+			connected = false;
+		}
+
+		if (!groupExists) {
+			createGroup(auth, credentials);
+		}
+
+		return connected;
+	}
+
+	private boolean handleBackendGroups(JsonArray backendGroups, Credentials credentials, Authentication auth) {
+		boolean groupExists = false;
+
+		for (JsonElement groupElement : backendGroups) {
+			JsonObject group = groupElement.getAsJsonObject();
+			String groupName = group.get("name").getAsString();
+
+			if (GROUP_NAME.equals(groupName)) {
+				groupExists = true;
+			} else if (group.get("useDefault").getAsBoolean()) {
+				deleteDefaultBackendGroup(group, credentials, auth);
+			}
+		}
+
+		return groupExists;
+	}
+
+	private void deleteDefaultBackendGroup(JsonObject group, Credentials credentials, Authentication auth) {
+		String groupId = group.get("id").getAsString();
+		String deleteUrl = String.format(NEO_PROTECT_URL, "gameshields/" + credentials.getServerId() + "/backendGroups/" + groupId);
+		HttpResponse<String> deleteResponse = restHelper.delete(deleteUrl, auth);
+
+		if (deleteResponse.statusCode() != 200) {
+			logger.severe("Failed to remove default backend group with ID: " + groupId);
+		} else {
+			logger.info("Successfully removed default backend group with ID: " + groupId);
+		}
+	}
+
+	private void createGroup(Authentication auth, Credentials credentials) {
+		String url = String.format(NEO_PROTECT_URL, "gameshields/" + credentials.getServerId() + "/backendGroups");
+		String payload = getCreateGroupPayload();
+		HttpResponse<String> response = restHelper.post(url, auth, payload);
+
+		if (response.statusCode() != 200) {
 			connected = false;
 		}
 	}
@@ -85,150 +133,46 @@ public class NeoProtectCommunicator extends AbstractCommunicator {
 		return createGroupPayload.toString();
 	}
 
-	@Override
-	public void addBackend(BackendService backendService, boolean proxyProtocol) {
-		logger.info("Adding backend for " + backendService.getServiceName() + " on NeoProtect");
-
-		Optional<Credentials> credentials = getNeoProtectCredentials()
-				.filter(c -> c.getTasks().contains(backendService.getServiceName().split("-")[0]));
-
-		if (credentials.isEmpty()) {
-			logger.severe("No matching credentials found for " + backendService.getServiceName());
-			return;
-		}
-
-		Authentication auth = new Authentication(AUTH_TYPE, credentials.get().getToken());
-
-		String cloudnetGroupId = getCloudnetGroupId(credentials.get(), auth);
-		if (cloudnetGroupId == null) {
-			logger.severe("The cloudnet group does not exist, cannot add backend");
-			return;
-		}
-
-		JsonObject backendData = new JsonObject();
-		backendData.addProperty("host", backendService.getHost());
-		backendData.addProperty("port", backendService.getPort());
-
-		String postUrl = String.format(NEO_PROTECT_URL, "gameshields/" + credentials.get().getServerId() + "/backendGroups/" + cloudnetGroupId + "/backends");
-		HttpResponse<String> postResponse = restHelper.post(postUrl, auth, backendData.toString());
-
-		if (postResponse.statusCode() != 200) {
-			logger.severe("Failed to add backend for " + backendService.getServiceName());
-		}
-	}
-
 	private Optional<Credentials> getNeoProtectCredentials() {
 		return settingsConfig.getCredentials().stream()
 				.filter(c -> c.getProtection().equals(Protection.NEOPROTECT))
 				.findFirst();
 	}
 
-	private String getCloudnetGroupId(Credentials credentials, Authentication auth) {
+	private String getCloudNetGroupId(Credentials credentials, Authentication auth) {
 		String url = String.format(NEO_PROTECT_URL, "gameshields/" + credentials.getServerId() + "/backendGroups");
 		HttpResponse<String> response = restHelper.get(url, auth);
 		return extractGroupId(response.body());
 	}
 
-	@Override
-	public void removeBackend(BackendService backendService) {
-		logger.info("Removing backend for " + backendService.getServiceName() + " from NeoProtect");
+	private String getBackendId(BackendService backendService, Credentials credentials, Authentication auth) {
+		String url = String.format(NEO_PROTECT_URL, "gameshields/" + credentials.getServerId() + "/backendGroups");
+		HttpResponse<String> response = restHelper.get(url, auth);
 
-		Optional<Credentials> credentials = getNeoProtectCredentials();
-		if (credentials.isEmpty()) {
-			logger.severe("No credentials found for NeoProtect");
-			return;
-		}
-
-		Authentication auth = new Authentication(AUTH_TYPE, credentials.get().getToken());
-
-		String cloudnetGroupId = getCloudnetGroupId(credentials.get(), auth);
-		if (cloudnetGroupId == null) {
-			logger.severe("The cloudnet group does not exist, cannot remove backend");
-			return;
-		}
-
-		String backendsUrl = String.format(NEO_PROTECT_URL, "gameshields/" + credentials.get().getServerId() + "/backendGroups/" + cloudnetGroupId + "/backends");
-		HttpResponse<String> backendsResponse = restHelper.get(backendsUrl, auth);
-
-		if (backendsResponse.statusCode() != 200) {
-			logger.severe("Failed to retrieve backends for the cloudnet group");
-			return;
-		}
-
-		String backendId = extractBackendId(backendsResponse.body(), backendService);
-
-		if (backendId == null) {
-			logger.info("Backend not found for " + backendService.getServiceName());
-			return;
-		}
-
-		String deleteUrl = String.format(NEO_PROTECT_URL, "gameshields/" + credentials.get().getServerId() + "/backendGroups/" + cloudnetGroupId + "/backends/" + backendId);
-		HttpResponse<String> deleteResponse = restHelper.delete(deleteUrl, auth);
-
-		if (deleteResponse.statusCode() != 200) logger.severe("Failed to remove backend for " + backendService.getServiceName());
-	}
-
-	private String extractBackendId(String responseBody, BackendService backendService) {
 		try {
-			JsonElement element = JsonParser.parseString(responseBody);
+			JsonElement element = JsonParser.parseString(response.body());
 			if (element.isJsonArray()) {
-				JsonArray backends = element.getAsJsonArray();
-				for (JsonElement backendElement : backends) {
-					JsonObject backend = backendElement.getAsJsonObject();
-					String host = backend.get("ipv4").getAsString();
-					int port = backend.get("port").getAsInt();
-					if (backendService.getHost().equals(host) && backendService.getPort() == port) {
-						return backend.get("id").getAsString();
+				JsonArray backendGroups = element.getAsJsonArray();
+				for (JsonElement groupElement : backendGroups) {
+					JsonObject group = groupElement.getAsJsonObject();
+					if (GROUP_NAME.equals(group.get("name").getAsString())) {
+						JsonArray backends = group.getAsJsonArray("backends");
+						for (JsonElement backendElement : backends) {
+							JsonObject backend = backendElement.getAsJsonObject();
+							String host = backend.get("ipv4").getAsString();
+							int port = backend.get("port").getAsInt();
+							if (backendService.getHost().equals(host) && backendService.getPort() == port) {
+								return backend.get("id").getAsString();
+							}
+						}
 					}
 				}
 			}
 		} catch (Exception e) {
 			logger.severe("Error parsing JSON response: " + e.getMessage());
 		}
+
 		return null;
-	}
-
-	@Override
-	public void clearBackends() {
-		String serverId = settingsConfig.getCredentials().stream()
-				.filter(c -> c.getProtection().equals(Protection.NEOPROTECT))
-				.findFirst()
-				.map(Credentials::getServerId)
-				.orElse(null);
-
-		if (serverId == null) {
-			logger.severe("No serverId found for NeoProtect");
-			return;
-		}
-
-		String token = settingsConfig.getCredentials().stream()
-				.filter(c -> c.getProtection().equals(Protection.NEOPROTECT))
-				.findFirst()
-				.map(Credentials::getToken)
-				.orElse(null);
-		Authentication auth = new Authentication(AUTH_TYPE, token);
-
-		String url = String.format(NEO_PROTECT_URL, "gameshields/" + serverId + "/backendGroups");
-
-		HttpResponse<String> response = restHelper.get(url, auth);
-
-		if (response.statusCode() != 200) {
-			logger.severe("Failed to retrieve backend groups");
-			return;
-		}
-
-		String cloudnetGroupId = extractGroupId(response.body());
-
-		if (cloudnetGroupId == null) {
-			logger.info("The "+ GROUP_NAME + " group does not exist, no backends to clear");
-			return;
-		}
-
-		String deleteUrl = String.format(NEO_PROTECT_URL, "gameshields/" + serverId + "/backendGroups/" + cloudnetGroupId);
-
-		HttpResponse<String> deleteResponse = restHelper.delete(deleteUrl, auth);
-
-		if (deleteResponse.statusCode() != 200) logger.severe("Failed to clear the cloudnet group backends");
 	}
 
 	private String extractGroupId(String responseBody) {
@@ -251,5 +195,123 @@ public class NeoProtectCommunicator extends AbstractCommunicator {
 		}
 
 		return null;
+	}
+
+	@Override
+	public void addBackend(BackendService backendService, boolean proxyProtocol) {
+		logger.info("Adding backend for " + backendService.getServiceName() + " on NeoProtect");
+
+		getNeoProtectCredentials()
+				.filter(c -> c.getTasks().contains(backendService.getServiceName().split("-")[0]))
+				.ifPresentOrElse(credentials -> addBackend(credentials, backendService),
+						() -> logger.severe("No matching credentials found for " + backendService.getServiceName()));
+	}
+
+	private void addBackend(Credentials credentials, BackendService backendService) {
+		Authentication auth = new Authentication(AUTH_TYPE, credentials.getToken());
+		String cloudnetGroupId = getCloudNetGroupId(credentials, auth);
+
+		if (cloudnetGroupId == null) {
+			logger.severe("The cloudnet group does not exist, cannot add backend");
+			return;
+		}
+
+		JsonObject backendData = new JsonObject();
+		backendData.addProperty("host", backendService.getHost());
+		backendData.addProperty("port", backendService.getPort());
+
+		String url = String.format(NEO_PROTECT_URL, "gameshields/" + credentials.getServerId() + "/backendGroups/" + cloudnetGroupId + "/backends");
+		HttpResponse<String> postResponse = restHelper.post(url, auth, backendData.toString());
+
+		if (postResponse.statusCode() != 200) {
+			logger.severe("Failed to add backend for " + backendService.getServiceName());
+		}
+	}
+
+	@Override
+	public void removeBackend(BackendService backendService) {
+		logger.info("Removing backend for " + backendService.getServiceName() + " from NeoProtect");
+
+		getNeoProtectCredentials()
+				.filter(c -> c.getTasks().contains(backendService.getServiceName().split("-")[0]))
+				.ifPresentOrElse(credentials -> removeBackend(credentials, backendService),
+						() -> logger.severe("No matching credentials found for " + backendService.getServiceName()));
+	}
+
+	private void removeBackend(Credentials credentials, BackendService backendService) {
+		Authentication auth = new Authentication(AUTH_TYPE, credentials.getToken());
+		String cloudnetGroupId = getCloudNetGroupId(credentials, auth);
+
+		if (cloudnetGroupId == null) {
+			logger.severe("The cloudnet group does not exist, cannot remove backend");
+			return;
+		}
+
+		String backendId = getBackendId(backendService, credentials, auth);
+		if (backendId == null) {
+			logger.severe("No matching backend found for " + backendService.getServiceName());
+			return;
+		}
+
+		String deleteUrl = String.format(NEO_PROTECT_URL, "gameshields/" + credentials.getServerId() + "/backendGroups/" + cloudnetGroupId + "/backends/" + backendId);
+		HttpResponse<String> deleteResponse = restHelper.delete(deleteUrl, auth);
+
+		if (deleteResponse.statusCode() != 200) {
+			logger.severe("Failed to remove backend for " + backendService.getServiceName());
+		} else {
+			logger.info("Successfully removed backend for " + backendService.getServiceName());
+		}
+	}
+
+	@Override
+	public void clearBackends() {
+		logger.info("Clearing all backends from NeoProtect");
+
+		getNeoProtectCredentials()
+				.ifPresentOrElse(this::clearBackends,
+						() -> logger.severe("No credentials found for NeoProtect"));
+	}
+
+	private void clearBackends(Credentials credentials) {
+		Authentication auth = new Authentication(AUTH_TYPE, credentials.getToken());
+		String backendGroupsUrl = String.format(NEO_PROTECT_URL, "gameshields/" + credentials.getServerId() + "/backendGroups");
+		HttpResponse<String> backendGroupsResponse = restHelper.get(backendGroupsUrl, auth);
+
+		if (backendGroupsResponse.statusCode() != 200) {
+			logger.severe("Failed to retrieve backend groups");
+			return;
+		}
+
+		try {
+			JsonElement element = JsonParser.parseString(backendGroupsResponse.body());
+			if (element.isJsonArray()) {
+				JsonArray backendGroups = element.getAsJsonArray();
+				for (JsonElement groupElement : backendGroups) {
+					JsonObject group = groupElement.getAsJsonObject();
+					if (GROUP_NAME.equals(group.get("name").getAsString())) {
+						clearBackendsInGroup(group, credentials, auth);
+					}
+				}
+			}
+		} catch (Exception e) {
+			logger.severe("Error parsing JSON response: " + e.getMessage());
+		}
+	}
+
+	private void clearBackendsInGroup(JsonObject group, Credentials credentials, Authentication auth) {
+		String groupId = group.get("id").getAsString();
+		JsonArray backends = group.getAsJsonArray("backends");
+		for (JsonElement backendElement : backends) {
+			JsonObject backend = backendElement.getAsJsonObject();
+			String backendId = backend.get("id").getAsString();
+			String deleteUrl = String.format(NEO_PROTECT_URL, "gameshields/" + credentials.getServerId() + "/backendGroups/" + groupId + "/backends/" + backendId);
+			HttpResponse<String> deleteResponse = restHelper.delete(deleteUrl, auth);
+
+			if (deleteResponse.statusCode() != 200) {
+				logger.severe("Failed to remove backend with ID: " + backendId);
+			} else {
+				logger.info("Successfully removed backend with ID: " + backendId);
+			}
+		}
 	}
 }
