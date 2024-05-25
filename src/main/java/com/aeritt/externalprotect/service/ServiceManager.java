@@ -50,7 +50,7 @@ public class ServiceManager {
 		communicators.forEach(AbstractCommunicator::clearBackends);
 	}
 
-	public void addService(CloudService cloudService) {
+	public synchronized void addService(CloudService cloudService) {
 		Credentials credentials = settingsConfig.getCredentials().stream()
 				.filter(c -> c.getTasks().contains(cloudService.serviceId().taskName()))
 				.findFirst().orElse(null);
@@ -65,7 +65,7 @@ public class ServiceManager {
 		backendServices.get(credentials.getProtection()).add(backendService);
 	}
 
-	public void removeService(CloudService cloudService) {
+	public synchronized void removeService(CloudService cloudService) {
 		Credentials credentials = settingsConfig.getCredentials().stream()
 				.filter(c -> c.getTasks().contains(cloudService.serviceId().taskName()))
 				.findFirst().orElse(null);
@@ -107,7 +107,7 @@ public class ServiceManager {
 		};
 	}
 
-	public void clearBackends() {
+	public synchronized void clearBackends() {
 		communicators.forEach(AbstractCommunicator::clearBackends);
 		backendServices.values().forEach(List::clear);
 	}

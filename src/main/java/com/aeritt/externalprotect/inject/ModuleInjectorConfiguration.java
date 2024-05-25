@@ -1,9 +1,10 @@
-package com.aeritt.externalprotect;
+package com.aeritt.externalprotect.inject;
 
-import com.aeritt.externalprotect.config.ConfigService;
-import com.aeritt.externalprotect.config.setting.SettingsConfig;
+import com.aeritt.externalprotect.Module;
 import com.aeritt.externalprotect.communicator.AbstractCommunicator;
 import com.aeritt.externalprotect.communicator.NeoProtectCommunicator;
+import com.aeritt.externalprotect.config.ConfigService;
+import com.aeritt.externalprotect.config.setting.SettingsConfig;
 import com.google.inject.AbstractModule;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.Multibinder;
@@ -16,7 +17,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 @Singleton
-public class ModuleConfig extends AbstractModule {
+public class ModuleInjectorConfiguration extends AbstractModule {
 	private final CommandProvider commandProvider;
 	private final EventManager eventManager;
 
@@ -24,7 +25,7 @@ public class ModuleConfig extends AbstractModule {
 
 	private final Logger logger = LogManager.logger(Module.class);
 
-	public ModuleConfig(CommandProvider commandProvider, EventManager eventManager) {
+	public ModuleInjectorConfiguration(CommandProvider commandProvider, EventManager eventManager) {
 		this.commandProvider = commandProvider;
 		this.eventManager = eventManager;
 	}
@@ -53,6 +54,7 @@ public class ModuleConfig extends AbstractModule {
 	private void configureConfig() {
 		ConfigService configService = new ConfigService(dataPath);
 
-		bind(SettingsConfig.class).toInstance(configService.registerConfig(SettingsConfig.class, "", "settings.json"));
+		SettingsConfig settingsConfig = configService.registerConfig(SettingsConfig.class, "", "settings.json");
+		bind(SettingsConfig.class).toInstance(settingsConfig);
 	}
 }

@@ -1,5 +1,8 @@
 name: Development build
 
+env:
+  projectVersion: '0.0.2'
+
 on:
   push:
     branches:
@@ -11,7 +14,6 @@ jobs:
 
     outputs:
       projectName: ${{ steps.project_details.outputs.project_name }}
-      projectVersion: ${{ steps.project_details.outputs.project_version }}
 
     steps:
       - uses: actions/checkout@v4
@@ -19,7 +21,6 @@ jobs:
         id: project_details
         run: |
           echo "PROJECT_NAME=$(mvn -q -Dexec.executable=echo -Dexec.args='${project.artifactId}' --non-recursive exec:exec)" >> $GITHUB_OUTPUT
-          echo "PROJECT_VERSION=$(mvn -q -Dexec.executable=echo -Dexec.args='${project.version}' --non-recursive exec:exec)" >> $GITHUB_OUTPUT
 
   build:
     needs: setup
@@ -37,12 +38,11 @@ jobs:
 
       - name: Build Module
         run: |
-          mvn -T 1C -B package --file pom.xml
+          mvn -T 1C -B package -Drevision=${{ env.projectVersion }} --file pom.xml
 
       - name: Upload artifact
         env:
           projectName: ${{ needs.setup.outputs.projectName }}
-          projectVersion: ${{ needs.setup.outputs.projectVersion }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.projectName }}-${{ env.projectVersion }}-b${{ github.run_number }}

@@ -1,9 +1,7 @@
 package com.aeritt.externalprotect;
 
-import com.aeritt.externalprotect.listener.ListenerRegistrar;
-import com.aeritt.externalprotect.service.ServiceManager;
-import com.google.inject.Guice;
-import com.google.inject.Injector;
+import com.aeritt.externalprotect.dependency.DependencyResolver;
+import com.aeritt.externalprotect.inject.ModuleInjector;
 import eu.cloudnetservice.driver.event.EventManager;
 import eu.cloudnetservice.driver.module.ModuleLifeCycle;
 import eu.cloudnetservice.driver.module.ModuleTask;
@@ -11,26 +9,27 @@ import eu.cloudnetservice.driver.module.driver.DriverModule;
 import eu.cloudnetservice.node.command.CommandProvider;
 
 public final class Module extends DriverModule {
-	private Injector injector;
 
 	@ModuleTask(lifecycle = ModuleLifeCycle.LOADED)
 	public void onLoad(CommandProvider commandProvider, EventManager eventManager) {
-		injector = Guice.createInjector(new ModuleConfig(commandProvider, eventManager));
+		DependencyResolver dependencyResolver = new DependencyResolver();
+		dependencyResolver.resolveDependencies();
+
+		new ModuleInjector(commandProvider, eventManager);
 	}
 
 	@ModuleTask(lifecycle = ModuleLifeCycle.STARTED)
 	public void onStart() {
-		injector.getInstance(ListenerRegistrar.class).registerListeners();
-		injector.getInstance(ServiceManager.class).init();
+		ModuleLifecycleManager.onStart();
 	}
 
 	@ModuleTask(lifecycle = ModuleLifeCycle.STOPPED)
 	public void onStop() {
-		injector.getInstance(ServiceManager.class).clearBackends();
+		ModuleLifecycleManager.onStop();
 	}
 
 	@ModuleTask(lifecycle = ModuleLifeCycle.RELOADING)
 	public void onReload() {
-		injector.getInstance(ServiceManager.class).clearBackends();
+		ModuleLifecycleManager.onReload();
 	}
 }

@@ -1,0 +1,6 @@
+aopalliance=${aopalliance.version}
+guice=${guice.version}
+guava=${guava.version}
+gson=${gson.version}
+commons-compress=${commons-compress.version}
+snakeyaml=${snakeyaml.version}
